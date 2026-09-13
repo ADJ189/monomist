@@ -30,7 +30,7 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   root.innerHTML = `
     <div class="shell">
       <aside class="sidebar">
-        <div class="sidebar__brand">Session Clock · Music</div>
+        <div class="sidebar__brand"><img class="sidebar__logo" src="/icons/icon-32.png" alt="" width="18" height="18" />Monomist</div>
         <button class="nav-item active" data-nav="search"><span class="nav-item__icon" aria-hidden="true">🔍</span><span class="nav-item__label">Search</span></button>
         <button class="nav-item" data-nav="library"><span class="nav-item__icon" aria-hidden="true">📚</span><span class="nav-item__label">Library</span></button>
       </aside>

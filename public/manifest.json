@@ -1,10 +1,14 @@
 {
-  "name": "Session Clock · Music",
-  "short_name": "SC Music",
-  "description": "A local-first, cinematic music player companion to Session Clock.",
+  "name": "Monomist",
+  "short_name": "Monomist",
+  "description": "A local-first, cinematic music player with a live artwork-driven visualizer and 10-band EQ.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0b0c",
   "theme_color": "#0b0b0c",
-  "icons": []
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }
