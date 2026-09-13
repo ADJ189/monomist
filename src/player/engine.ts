@@ -1,7 +1,7 @@
 import type { QueueState, Track } from '../core/types';
 import type { MusicProvider } from '../music/provider';
 import { db, recordHistory, saveQueueState } from '../storage/db';
-import { AudioAnalyser } from './analyser';
+import { AudioGraph } from './audiograph';
 import { AudioBackend, YouTubeIframeBackend, type PlaybackBackend } from './backends';
 import { Queue } from './queue';
 
@@ -21,7 +21,9 @@ export class PlayerEngine {
   private playing = false;
   private muted = false;
   private rate = 1;
-  readonly analyser = new AudioAnalyser();
+  /** Named `analyser` for historical/minimal-diff reasons -- it's actually the full
+   *  audio graph now (EQ chain included). See player/audiograph.ts. */
+  readonly analyser = new AudioGraph();
   /** Debounces queue persistence — see comment on `scheduleQueueSave`. */
   private saveTimer: number | null = null;
 
