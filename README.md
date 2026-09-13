@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/icons/logo-master.png" alt="Monomist logo" width="120" height="120" />
+  <img src="public/icon/logo-master.png" alt="Monomist logo" width="120" height="120" />
 </p>
 
 <h1 align="center">Monomist</h1>
