@@ -11,6 +11,8 @@ import { getLyrics, saveLyrics } from '../lyrics/provider';
 import { LyricsSync, type LyricsLine } from '../lyrics/sync';
 import { bindKeyboardShortcuts } from './keyboard';
 import { bindMediaSession } from '../player/media-session';
+import { mountSettingsPanel } from './settings';
+import { settingsStore } from '../storage/settings-store';
 import type { Playlist } from '../core/types';
 
 const fmt = (secs: number): string => {
@@ -29,8 +31,8 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     <div class="shell">
       <aside class="sidebar">
         <div class="sidebar__brand">Session Clock · Music</div>
-        <button class="nav-item active" data-nav="search">Search</button>
-        <button class="nav-item" data-nav="library">Library</button>
+        <button class="nav-item active" data-nav="search"><span class="nav-item__icon" aria-hidden="true">🔍</span><span class="nav-item__label">Search</span></button>
+        <button class="nav-item" data-nav="library"><span class="nav-item__icon" aria-hidden="true">📚</span><span class="nav-item__label">Library</span></button>
       </aside>
 
       <main class="main">
@@ -38,7 +40,7 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
         <div class="main__content" id="view-root"></div>
       </main>
 
-      <div class="now-playing">
+      <div class="now-playing" id="now-playing">
         <div class="now-playing__track">
           <img class="now-playing__art" id="np-art" alt="" />
           <div class="now-playing__meta">
@@ -47,6 +49,7 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
             </div>
             <div class="now-playing__artist" id="np-artist"></div>
           </div>
+          <button class="expand-btn" id="btn-expand" title="Expand player" aria-label="Expand player">⌃</button>
           <button class="like-btn" id="btn-like" title="Like (L)">♡</button>
         </div>
 
@@ -76,6 +79,7 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
           <button id="btn-lyrics" title="Lyrics">Aa</button>
           <button id="btn-queue" title="Queue (Q)">☰</button>
           <button id="btn-mini" title="Mini player">▭</button>
+          <button id="btn-settings" title="Settings (,)">⚙</button>
         </div>
       </div>
 
@@ -106,6 +110,12 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     () => colorBridge.current
   );
   canvas.start();
+
+  const settingsPanel = mountSettingsPanel(root, engine);
+  $('#btn-settings').addEventListener('click', () => settingsPanel.open());
+  settingsStore.subscribe((s) => {
+    root.querySelector('.shell')!.classList.toggle('dense', s.compactDensity);
+  });
 
   const lyricsSync = new LyricsSync();
   let speedIndex = SPEEDS.indexOf(1);
@@ -388,6 +398,18 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     const rate = SPEEDS[speedIndex];
     engine.setPlaybackRate(rate);
     btnSpeed.textContent = `${rate}×`;
+    if (settingsStore.get().rememberSpeed) settingsStore.update({ lastSpeed: rate });
+  });
+  // Restore a remembered speed once the persisted settings (if any) have loaded --
+  // this only ever fires once, and does nothing when "remember speed" is off.
+  void settingsStore.whenReady().then(() => {
+    const s = settingsStore.get();
+    if (!s.rememberSpeed) return;
+    const idx = SPEEDS.indexOf(s.lastSpeed);
+    if (idx === -1) return;
+    speedIndex = idx;
+    engine.setPlaybackRate(SPEEDS[idx]);
+    btnSpeed.textContent = `${SPEEDS[idx]}×`;
   });
   btnShuffle.addEventListener('click', () => {
     engine.toggleShuffle();
@@ -519,6 +541,18 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   });
 
   // ---------------------------------------------------------------------
+  // Mobile full-player expand (see style.css's max-width: 880px block --
+  // this button only renders there; on desktop everything is visible already).
+  // ---------------------------------------------------------------------
+  const nowPlayingEl = $('#now-playing');
+  const btnExpand = $<HTMLButtonElement>('#btn-expand');
+  btnExpand.addEventListener('click', () => {
+    const expanded = nowPlayingEl.classList.toggle('expanded');
+    btnExpand.textContent = expanded ? '⌄' : '⌃';
+    btnExpand.title = expanded ? 'Collapse player' : 'Expand player';
+  });
+
+  // ---------------------------------------------------------------------
   // Engine -> UI
   // ---------------------------------------------------------------------
   const titleWrap = $('#np-title-wrap');
@@ -570,7 +604,8 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
       requestAnimationFrame(() => root.querySelector<HTMLInputElement>('.search-input')?.focus());
     },
     toggleQueue: () => setDrawer(!queueOpen),
-    toggleLikeCurrent: () => void toggleLikeCurrent()
+    toggleLikeCurrent: () => void toggleLikeCurrent(),
+    openSettings: () => settingsPanel.open()
   });
 
   bindMediaSession(engine);

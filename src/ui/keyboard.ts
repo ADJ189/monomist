@@ -4,6 +4,7 @@ export interface KeyboardHandlers {
   focusSearch: () => void;
   toggleQueue: () => void;
   toggleLikeCurrent: () => void;
+  openSettings: () => void;
 }
 
 const SKIP_SMALL = 10;
@@ -61,6 +62,9 @@ export function bindKeyboardShortcuts(engine: PlayerEngine, handlers: KeyboardHa
       case '/':
         e.preventDefault();
         handlers.focusSearch();
+        break;
+      case ',':
+        handlers.openSettings();
         break;
     }
   });
