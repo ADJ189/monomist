@@ -5,10 +5,127 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0b0c" />
     <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Monomist — a local-first, cinematic music player with a live artwork-driven visualizer and 10-band EQ." />
+
+    <link rel="icon" href="/icons/favicon.ico" sizes="any" />
+    <link rel="icon" href="/icons/icon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/icons/icon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <title>Session Clock · Music</title>
+    <link rel="preload" as="image" href="/icons/logo-splash.png" />
+
+    <title>Monomist</title>
+
+    <!--
+      Inline on purpose: this is the very first paint, so it can't wait on
+      the bundled stylesheet. It mirrors style.css's dark background/token
+      values just closely enough to avoid a flash, and is removed from the
+      DOM entirely once main.ts hides it (see hideSplash()) -- nothing here
+      lingers as dead weight after boot.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0b0c;
+      }
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #0b0b0c;
+        transition: opacity 420ms cubic-bezier(0.2, 0, 0, 1), visibility 420ms;
+      }
+      #splash.splash--hide {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #splash img {
+        width: 120px;
+        height: 120px;
+        animation: splash-in 700ms cubic-bezier(0.2, 0, 0, 1) both;
+        filter: drop-shadow(0 0 28px rgba(130, 150, 255, 0.35));
+      }
+      #splash .splash__name {
+        font-family: -apple-system, 'Inter', 'Segoe UI', system-ui, sans-serif;
+        color: #f4f4f5;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        opacity: 0;
+        animation: splash-fade 500ms ease 220ms forwards;
+      }
+      #splash .splash__bar {
+        width: 120px;
+        height: 2px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        opacity: 0;
+        animation: splash-fade 400ms ease 320ms forwards;
+      }
+      #splash .splash__bar-fill {
+        height: 100%;
+        width: 40%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #7dd3fc, #a78bfa);
+        animation: splash-scan 1100ms ease-in-out infinite;
+      }
+      @keyframes splash-in {
+        from {
+          opacity: 0;
+          transform: scale(0.82);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      @keyframes splash-fade {
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes splash-scan {
+        from {
+          transform: translateX(-120%);
+        }
+        to {
+          transform: translateX(360%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash img {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        #splash .splash__name,
+        #splash .splash__bar {
+          animation: none;
+          opacity: 1;
+        }
+        #splash .splash__bar-fill {
+          animation: none;
+          width: 60%;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <img src="/icons/logo-splash.png" alt="" width="120" height="120" />
+      <div class="splash__name">Monomist</div>
+      <div class="splash__bar"><div class="splash__bar-fill"></div></div>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
