@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses date-based [0.0.x] pre-release versioning until a
 first stable 1.0.0.
 
+## [0.0.3] - 2026-09-14
+
+### Fixed
+
+- Resolved all 5 open Dependabot alerts, all transitive dev-only
+  dependencies pulled in by `@lhci/cli`, none reachable from the
+  shipped app:
+  - `tmp` — arbitrary temp file/dir write via symlinked `dir`
+    ([GHSA-52f5-9888-hmc6]) and prefix/postfix path traversal
+    ([GHSA-ph9p-34f9-6g65]). Pinned via `overrides` to `^0.2.4`
+    (both fixed there).
+  - `uuid` — missing buffer bounds check in v3/v5/v6 with a
+    caller-supplied buffer ([GHSA-w5hq-g745-h8pq]). Pinned via
+    `overrides` to `^11.1.1`.
+  - `extract-zip` — unvalidated symlink path traversal on
+    extraction ([GHSA-jmr9-qjv8-65gv], [GHSA-7pqw-9j4j-h8q3]).
+    No version of `extract-zip` has ever fixed this (upstream
+    dead end). It only entered the tree via `lighthouse@12.6.1`
+    (pinned by `@lhci/cli@0.15.1`) requiring an old
+    `puppeteer-core` whose `@puppeteer/browsers` still used
+    `extract-zip` to unpack downloaded Chrome builds.
+    `@puppeteer/browsers@3.x` dropped `extract-zip` entirely, so
+    `overrides` also force `lighthouse@^13.4.1`,
+    `puppeteer-core@^25.3.0`, and `@puppeteer/browsers@^3.2.2`,
+    which removes `extract-zip` from the tree rather than
+    accepting the risk. Verified `lhci --version` and
+    `lhci autorun --help` still load correctly under the
+    overridden versions.
+  - Also swept up `qs`'s array-limit bypass and buffer-check DoS
+    (moderate, via `express`) with the same mechanism.
+  - `npm audit` now reports 0 vulnerabilities. Lint, typecheck,
+    and build all verified clean against the new lockfile.
+
+[GHSA-52f5-9888-hmc6]: https://github.com/advisories/GHSA-52f5-9888-hmc6
+[GHSA-ph9p-34f9-6g65]: https://github.com/advisories/GHSA-ph9p-34f9-6g65
+[GHSA-w5hq-g745-h8pq]: https://github.com/advisories/GHSA-w5hq-g745-h8pq
+[GHSA-jmr9-qjv8-65gv]: https://github.com/advisories/GHSA-jmr9-qjv8-65gv
+[GHSA-7pqw-9j4j-h8q3]: https://github.com/advisories/GHSA-7pqw-9j4j-h8q3
+
 ## [0.0.2] - 2026-09-13
 
 ### Added

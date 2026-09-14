@@ -1,6 +1,6 @@
 {
   "name": "monomist",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A local-first, cinematic music player with a live artwork-driven visualizer, animated background, and 10-band EQ.",
   "main": "index.js",
   "scripts": {
@@ -35,6 +35,14 @@
   "dependencies": {
     "dexie": "^4.4.5",
     "liricle": "^4.2.0"
+  },
+  "overrides": {
+    "tmp": "^0.2.4",
+    "uuid": "^11.1.1",
+    "qs": "^6.15.2",
+    "lighthouse": "^13.4.1",
+    "puppeteer-core": "^25.3.0",
+    "@puppeteer/browsers": "^3.2.2"
   },
   "type": "module",
   "engines": {
