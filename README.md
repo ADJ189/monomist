@@ -12,9 +12,12 @@
 
 ---
 
-Typechecked (`npm run typecheck`), linted (`npm run lint`), and buildable
-(`npm run build`) end to end. See [What's stubbed](#whats-stubbed--next-steps)
-for the one piece it isn't wired to yet: a live YouTube OAuth token source.
+Typechecked (`npm run typecheck`), linted (`npm run lint`), tested
+(`npm run test`), and buildable (`npm run build`) end to end. See
+[What's stubbed](#whats-stubbed--next-steps) for the pieces it isn't
+wired to yet: a live YouTube OAuth token source, and the server-side
+YouTube.js/Innertube adapter described in
+[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Feature coverage
 
@@ -63,13 +66,16 @@ for the one piece it isn't wired to yet: a live YouTube OAuth token source.
 
 ```bash
 npm install
-npm run dev          # local dev server
+npm run dev          # local dev server (frontend only, no /api/* routes)
 npm run build         # production build -> dist/
 npm run preview       # serve the production build locally
-npm run typecheck     # tsc --noEmit
+npm run typecheck     # tsc --noEmit for src/, plus a separate pass for worker/
+npm run test          # vitest run
 npm run lint          # eslint .
 npm run lint:fix      # eslint . --fix
 npm run lighthouse    # build, then run Lighthouse CI against dist/
+npm run worker:dev     # wrangler dev -- serves dist/ + /api/* together (see docs/ARCHITECTURE.md)
+npm run worker:deploy   # build, then wrangler deploy
 ```
 
 Requires Node ≥20 (see `.nvmrc`). `npm run lighthouse` needs a local Chrome
@@ -134,6 +140,21 @@ reimplementation of the same interaction patterns, not a port.
 Neither LiMusic's nor Monochrome's YouTube-stream-handling code was used
 — see the next section.
 
+## Server-side API (Cloudflare Worker)
+
+A Cloudflare Worker (`worker/`) serves the built frontend plus a small
+typed `/api/*` (health/search/video/playback), sitting in front of a
+`RemoteMusicProvider` abstraction whose YouTube implementation is
+currently a deliberate placeholder — it always responds `501
+NOT_IMPLEMENTED`. `music/providers/youtube.ts` tries that API first and
+falls back to the direct Data API v3 path described above on any failure,
+so **nothing about the app's behavior changes today** — this is scaffolding
+for a future server-side YouTube.js/Innertube adapter, not a replacement
+for the current approach. See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+for the full request flow, where that future adapter plugs in, and what's
+explicitly out of scope for it (YouTube.js/Innertube itself, PO-tokens,
+BotGuard, raw cookie handling — none of that is implemented here).
+
 ## What's intentionally not here
 
 `music/provider.ts` and `music/providers/youtube.ts` document this
@@ -158,6 +179,10 @@ themselves unofficial/scraped services — see `lyrics/provider.ts`.
 - `getStoredYouTubeToken()` in `main.ts` reads a placeholder settings key.
   Wire it to Session Clock's existing `ensureFreshToken()` /
   `integrations.ts` OAuth flow.
+- `worker/providers/server-youtube-provider.ts`'s `ServerYouTubeProvider`
+  is a deliberate placeholder (always throws `NotImplementedError`) for a
+  future server-side YouTube.js/Innertube adapter — see
+  [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md#where-the-future-adapter-plugs-in).
 - Search suggestions are local (your own recent searches), not a live
   YouTube suggest API — that's a separate, undocumented endpoint with
   its own quota/ToS questions, kept out for the same reason as the
@@ -194,12 +219,21 @@ No framework, no polyfills — built to degrade gracefully instead:
 ## Structure
 
 ```
+worker/
+  index.ts                        Worker entry: routes /api/*, ASSETS fallback for the rest
+  router.ts, env.ts, errors.ts     routing, typed bindings, typed error model
+  rate-limit.ts, validation.ts     rate-limit abstraction, request validation
+  providers/                       RemoteMusicProvider interface + placeholder + registry
+  auth/                            session cookie + Google OAuth abstractions (future login flow)
+  routes/                          health / search / video / playback
 src/
+  api/types.ts                    wire types shared by the client and the Worker
+  api/client.ts                    MonomistApiClient -- the only place the frontend builds /api/* calls
   core/types.ts                  domain types
   music/provider.ts               MusicProvider interface
-  music/providers/youtube.ts      the only provider implementation
+  music/providers/youtube.ts      tries the Monomist API first, falls back to direct Data API v3
   player/queue.ts                  shuffle/repeat/remove, provider-agnostic
-  player/backends.ts               AudioBackend + YouTubeIframeBackend
+  player/backends.ts               AudioBackend + DirectAudioBackend (expiry-refresh) + YouTubeIframeBackend
   player/engine.ts                 orchestrates provider + queue + backend
   player/audiograph.ts             EQ chain + real FFT (audio) / ambient fallback (iframe)
   player/media-session.ts          OS/lock-screen media controls
@@ -216,6 +250,9 @@ src/
 public/
   manifest.json, sw.js              PWA shell caching
   icons/                            favicon, apple touch icon, PWA + maskable icons, splash logo
+docs/ARCHITECTURE.md                Worker/API architecture, where the future YouTube.js adapter plugs in
+wrangler.toml                       Cloudflare Worker config
+.env.example, .dev.vars.example      server env/secrets reference
 eslint.config.js                    flat ESLint config (typescript-eslint)
 lighthouserc.json                   Lighthouse CI thresholds
 .github/workflows/ci.yml            lint + typecheck + build on push/PR

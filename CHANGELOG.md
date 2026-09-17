@@ -6,6 +6,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses date-based [0.0.x] pre-release versioning until a
 first stable 1.0.0.
 
+## [0.0.4] - 2026-09-17
+
+### Added
+
+- Cloudflare Worker (`worker/`) serving the built frontend plus a typed
+  `/api/*`: `GET /api/health`, `GET /api/search?q=`, `GET /api/video/:id`,
+  `GET /api/playback/:id`. Routes contain no provider-specific logic --
+  they call through a `RemoteMusicProvider` interface
+  (`worker/providers/types.ts`) via `getProvider()`
+  (`worker/providers/registry.ts`).
+- `worker/providers/server-youtube-provider.ts`: a deliberate placeholder
+  (`ServerYouTubeProvider`) for a future server-side YouTube.js/Innertube
+  adapter. Every method throws `NotImplementedError` (501). YouTube.js,
+  Innertube, PO-token generation, BotGuard, and other anti-bot bypasses
+  are explicitly not implemented anywhere in this change -- see
+  `docs/ARCHITECTURE.md`.
+- Typed error model (`worker/errors.ts`), request validation
+  (`worker/validation.ts`), and a rate-limit abstraction
+  (`worker/rate-limit.ts`, in-memory by default, KV-backed when a
+  `MONOMIST_KV` binding is provisioned).
+- Server-side session (`worker/auth/session.ts`, signed cookies) and
+  Google OAuth (`worker/auth/oauth.ts`, standard endpoints) infrastructure
+  for a future login flow -- unused by any route today. No raw YouTube
+  cookie handling.
+- `src/api/`: shared wire types (`types.ts`) and a typed frontend client
+  (`client.ts`, `monomistApi`) -- the only place the frontend builds
+  `/api/*` requests.
+- `src/player/backends.ts`: `DirectAudioBackend`, wrapping the existing
+  (unchanged) `AudioBackend` with `expiresAt`-based refresh scheduling for
+  temporary media URLs, reloading the same `<audio>` element so an
+  attached `MediaElementAudioSourceNode` survives a refresh.
+  `PlayerEngine` now constructs this backend for `audio-url` sources; it
+  behaves identically to `AudioBackend` when no `expiresAt` is present
+  (the case for every provider today).
+- `wrangler.toml`, `.dev.vars.example`, `.env.example`, `.gitignore`,
+  `tsconfig.worker.json` (separate Workers-runtime typecheck from the
+  frontend's DOM-lib typecheck).
+- `docs/ARCHITECTURE.md`: request flow, directory layout, and exactly
+  where the future YouTube.js adapter plugs in.
+- Vitest (`vitest.config.ts`) plus 87 tests across routing, the error
+  model, rate limiting, request validation, sessions, OAuth, the provider
+  placeholder, individual routes, the Worker's fetch dispatcher, the
+  frontend API client, `DirectAudioBackend`'s refresh behavior, and
+  `YouTubeProvider`'s fallback behavior.
+
+### Changed
+
+- `src/music/providers/youtube.ts`: `search()` and
+  `resolvePlayableSource()` now try the Monomist API client first,
+  falling back to the exact same direct-to-Data-API-v3 implementation
+  this provider always had on any failure (a typed `NOT_IMPLEMENTED`
+  response, a network error, or an unreachable Worker). Since
+  `ServerYouTubeProvider` is currently a placeholder that always throws,
+  **the app's behavior is unchanged** -- every request still falls
+  through to the original code path.
+- `package.json`: added `test`, `typecheck:worker`, `worker:dev`,
+  `worker:deploy` scripts; added `vitest`, `wrangler`,
+  `@cloudflare/workers-types`, and `happy-dom` as devDependencies.
+
 ## [0.0.3] - 2026-09-14
 
 ### Fixed

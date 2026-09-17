@@ -1,0 +1,31 @@
+name = "monomist"
+main = "worker/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Serves the Vite build output for everything that isn't /api/*.
+# Build the frontend first (`npm run build`) so ./dist exists, then
+# `wrangler deploy` / `wrangler dev`.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[vars]
+ENVIRONMENT = "development"
+PUBLIC_APP_URL = "http://localhost:8787"
+
+# Optional KV namespace backing the rate limiter and (later) the session
+# store in production. Without this binding, the Worker falls back to an
+# in-memory rate limiter scoped to a single isolate -- fine for local dev,
+# not for production traffic across multiple edge locations. Provision
+# with `wrangler kv namespace create monomist_kv` and paste the id below.
+# [[kv_namespaces]]
+# binding = "MONOMIST_KV"
+# id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secrets (GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, SESSION_SECRET)
+# are NOT set here -- see .dev.vars.example for local dev and
+# `wrangler secret put <NAME>` for production. Never commit real values.
+
+[env.production]
+vars = { ENVIRONMENT = "production", PUBLIC_APP_URL = "https://REPLACE_WITH_PRODUCTION_DOMAIN" }
