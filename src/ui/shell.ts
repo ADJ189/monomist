@@ -15,6 +15,9 @@ import { mountSettingsPanel } from './settings';
 import { settingsStore } from '../storage/settings-store';
 import type { Playlist } from '../core/types';
 
+/**
+ * Formats a duration in seconds as M:SS.
+ */
 const fmt = (secs: number): string => {
   if (!Number.isFinite(secs) || secs < 0) return '0:00';
   const m = Math.floor(secs / 60);
@@ -26,6 +29,11 @@ const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
 type View = 'search' | 'library' | 'playlist';
 
+/**
+ * Mounts the main UI shell (sidebar, now-playing bar, main content, side drawer)
+ * into the given root element, wires up all event handlers, and connects to the
+ * player engine and provider.
+ */
 export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: MusicProvider): void {
   root.innerHTML = `
     <div class="shell">
@@ -127,11 +135,17 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   // ---------------------------------------------------------------------
   let currentView: View = 'search';
 
+  /**
+   * Updates the sidebar nav to highlight the active view.
+   */
   function setNav(view: View): void {
     root.querySelectorAll('.nav-item[data-nav]').forEach((el) => el.classList.remove('active'));
     if (view !== 'playlist') root.querySelector(`[data-nav="${view}"]`)?.classList.add('active');
   }
 
+  /**
+   * Renders the search view with a search input and recent search chips.
+   */
   async function showSearch(): Promise<void> {
     currentView = 'search';
     setNav('search');
@@ -148,6 +162,10 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     wireSearch();
   }
 
+  /**
+   * Renders the library view with playlists, liked songs, continue listening,
+   * and recently played sections.
+   */
   async function showLibrary(): Promise<void> {
     currentView = 'library';
     setNav('library');
@@ -213,6 +231,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     });
   }
 
+  /**
+   * Renders the detailed playlist view for a given playlist ID.
+   */
   async function showPlaylist(playlistId: string): Promise<void> {
     currentView = 'playlist';
     setNav('library');
@@ -250,6 +271,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   let searchController: AbortController | null = null;
   let debounceHandle: number | null = null;
 
+  /**
+   * Wires up event listeners for the search input and recent search chips.
+   */
   function wireSearch(): void {
     const input = $<HTMLInputElement>('.search-input');
     input.addEventListener('input', () => {
@@ -264,6 +288,10 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     });
   }
 
+  /**
+   * Performs a search via the provider and renders the results. Cancels any
+   * in-flight search when called.
+   */
   async function runSearch(query: string): Promise<void> {
     searchController?.abort();
     const resultsEl = $('#results');
@@ -288,6 +316,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     onRemove?: (trackId: string) => void;
   }
 
+  /**
+   * Fetches tracks by ID from IndexedDB and renders them into the given container.
+   */
   async function renderTracksById(container: HTMLElement, trackIds: string[], opts?: RenderOpts): Promise<void> {
     if (trackIds.length === 0) {
       container.innerHTML = '<p class="empty">Nothing here yet.</p>';
@@ -297,6 +328,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     await renderTrackList(container, tracks, tracks, opts);
   }
 
+  /**
+   * Renders a list of tracks with play buttons, like buttons, and add-to-playlist menus.
+   */
   async function renderTrackList(
     container: HTMLElement,
     tracks: Track[],
@@ -347,6 +381,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     container.appendChild(frag);
   }
 
+  /**
+   * Shows a prompt to add a track to an existing playlist or create a new one.
+   */
   async function showAddToPlaylistMenu(track: Track): Promise<void> {
     const playlists = await getAllPlaylists();
     if (playlists.length === 0) {
@@ -366,6 +403,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     void db.tracks.put(track);
   }
 
+  /**
+   * Removes duplicate IDs from an array while preserving first-occurrence order.
+   */
   function dedupePreserveOrder(ids: string[]): string[] {
     const seen = new Set<string>();
     return ids.filter((id) => (seen.has(id) ? false : (seen.add(id), true)));
@@ -432,6 +472,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   });
 
   btnLike.addEventListener('click', () => void toggleLikeCurrent());
+  /**
+   * Toggles the like state of the currently playing track and updates the UI.
+   */
   async function toggleLikeCurrent(): Promise<void> {
     const track = engine.currentTrack;
     if (!track) return;
@@ -445,6 +488,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   // Side drawer: queue + lyrics, tabbed
   // ---------------------------------------------------------------------
   const drawer = $('#side-drawer');
+  /**
+   * Opens or closes the side drawer (queue/lyrics panel).
+   */
   function setDrawer(open: boolean): void {
     queueOpen = open;
     drawer.classList.toggle('open', open);
@@ -460,6 +506,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     setDrawer(true);
   });
 
+  /**
+   * Switches the active tab in the side drawer (queue or lyrics).
+   */
   function setTab(tab: 'queue' | 'lyrics'): void {
     activeTab = tab;
     root.querySelectorAll('.side-drawer__tab').forEach((el) => el.classList.toggle('active', (el as HTMLElement).dataset.tab === tab));
@@ -471,6 +520,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     btn.addEventListener('click', () => setTab(btn.dataset.tab as 'queue' | 'lyrics'));
   });
 
+  /**
+   * Renders the queue drawer with the currently queued tracks.
+   */
   async function renderQueueDrawer(): Promise<void> {
     const ids = [...engine.activeQueueIds];
     const container = $('#queue-list');
@@ -492,6 +544,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   // ---------------------------------------------------------------------
   const lyricsBody = $('#lyrics-body');
 
+  /**
+   * Renders the lyrics panel, showing saved lyrics if available or a paste input otherwise.
+   */
   async function renderLyricsPanel(): Promise<void> {
     const track = engine.currentTrack;
     if (!track) {
@@ -516,6 +571,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
     });
   }
 
+  /**
+   * Renders clickable lyrics lines with timestamps.
+   */
   function renderLyricsLines(lines: LyricsLine[]): void {
     lyricsBody.innerHTML = `<div class="lyrics-lines">${lines
       .map((l, i) => `<p class="lyrics-line" data-index="${i}" data-time="${l.time}">${escapeHtml(l.text || '\u00A0')}</p>`)
@@ -614,6 +672,9 @@ export function mountShell(root: HTMLElement, engine: PlayerEngine, provider: Mu
   void renderQueueDrawer();
 }
 
+/**
+ * Escapes a string for safe insertion into HTML.
+ */
 function escapeHtml(s: string): string {
   const div = document.createElement('div');
   div.textContent = s;

@@ -226,7 +226,9 @@ declare global {
 
 let ytApiPromise: Promise<void> | null = null;
 
-/** Loads YouTube's official IFrame API script exactly once, however many players need it. */
+/**
+ * Loads YouTube's official IFrame API script exactly once, however many players need it.
+ */
 function loadYouTubeApi(): Promise<void> {
   if (ytApiPromise) return ytApiPromise;
   ytApiPromise = new Promise((resolve) => {

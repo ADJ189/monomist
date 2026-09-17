@@ -39,17 +39,27 @@ export class YouTubeProvider implements MusicProvider {
 
   constructor(private getToken: () => Promise<string | null>) {}
 
+  /**
+   * Returns true if the provider has a valid OAuth token.
+   */
   isAuthenticated(): boolean {
     return this._authenticated;
   }
 
   private _authenticated = false;
 
+  /**
+   * Initializes the provider by checking for an available OAuth token.
+   */
   async connect(): Promise<void> {
     const token = await this.getToken();
     this._authenticated = Boolean(token);
   }
 
+  /**
+   * Searches for tracks matching the given query. Tries the Monomist API first,
+   * then falls back to direct Data API v3 calls.
+   */
   async search(query: string, signal?: AbortSignal): Promise<SearchResults> {
     const remote = await this.searchViaApi(query, signal).catch(() => null);
     if (remote) return remote;
@@ -128,6 +138,10 @@ export class YouTubeProvider implements MusicProvider {
     for (const t of tracks) t.durationSec = durationById.get(t.sourceId) ?? 0;
   }
 
+  /**
+   * Resolves a playable source for the given track. Tries the Monomist API first,
+   * then falls back to the IFrame Player embed.
+   */
   async resolvePlayableSource(track: Track): Promise<PlayableSource> {
     const remote = await this.resolveViaApi(track).catch(() => null);
     if (remote) return remote;
@@ -152,7 +166,9 @@ export class YouTubeProvider implements MusicProvider {
   }
 }
 
-/** Parses YouTube's ISO 8601 durations (e.g. "PT3M45S") into whole seconds. */
+/**
+ * Parses YouTube's ISO 8601 durations (e.g. "PT3M45S") into whole seconds.
+ */
 function parseIso8601Duration(iso: string): number {
   const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso);
   if (!match) return 0;

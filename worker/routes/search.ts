@@ -4,6 +4,10 @@ import { jsonOk } from '../errors';
 import { getProvider } from '../providers/registry';
 import { parseSearchQuery } from '../validation';
 
+/**
+ * Handles GET /api/search?q=.... Validates the query parameter, delegates
+ * to the configured provider, and returns matching tracks.
+ */
 export async function handleSearch(request: Request, _params: Record<string, string>, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const query = parseSearchQuery(url);

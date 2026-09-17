@@ -4,6 +4,10 @@ import { jsonOk } from '../errors';
 import { getProvider } from '../providers/registry';
 import { parseSourceId } from '../validation';
 
+/**
+ * Handles GET /api/playback/:id. Resolves playback information (audio URL or
+ * iframe embed URL) for a given video from the configured provider.
+ */
 export async function handlePlaybackInfo(
   request: Request,
   params: Record<string, string>,

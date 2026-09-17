@@ -8,6 +8,9 @@ const WORKER_THRESHOLD = 300;
 let worker: Worker | null = null;
 let nextRequestId = 0;
 
+/**
+ * Lazily creates and returns the shared data worker instance.
+ */
 function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(new URL('../../workers/data.worker.ts', import.meta.url), { type: 'module' });
@@ -15,6 +18,9 @@ function getWorker(): Worker {
   return worker;
 }
 
+/**
+ * Deduplicates history rows in a worker, returning distinct track IDs newest-first.
+ */
 function dedupeInWorker(rows: { trackId: string; playedAt: number }[], limit: number): Promise<string[]> {
   return new Promise((resolve) => {
     const w = getWorker();
@@ -30,6 +36,9 @@ function dedupeInWorker(rows: { trackId: string; playedAt: number }[], limit: nu
   });
 }
 
+/**
+ * Deduplicates history rows on the main thread, returning distinct track IDs newest-first.
+ */
 function dedupeInline(rows: { trackId: string; playedAt: number }[], limit: number): string[] {
   const seen = new Set<string>();
   const ordered: string[] = [];

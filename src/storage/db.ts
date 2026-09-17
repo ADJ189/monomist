@@ -70,15 +70,25 @@ class MusicDB extends Dexie {
 
 export const db = new MusicDB();
 
+/**
+ * Persists the current queue state to IndexedDB.
+ */
 export async function saveQueueState(state: QueueState): Promise<void> {
   await db.settings.put({ key: 'queue', value: state });
 }
 
+/**
+ * Loads the saved queue state from IndexedDB, or null if none exists.
+ */
 export async function loadQueueState(): Promise<QueueState | null> {
   const row = await db.settings.get('queue');
   return (row?.value as QueueState) ?? null;
 }
 
+/**
+ * Records a track play in the history table. Automatically trims old entries
+ * to keep history bounded to the most recent 2000 plays.
+ */
 export async function recordHistory(trackId: string): Promise<void> {
   await db.history.add({ trackId, playedAt: Date.now() });
   // Keep history bounded -- trim anything past the most recent 2000 plays
@@ -91,6 +101,10 @@ export async function recordHistory(trackId: string): Promise<void> {
   }
 }
 
+/**
+ * Records a search query in the recent searches table. Automatically trims
+ * old entries to keep only the most recent 25 searches.
+ */
 export async function recordSearch(query: string): Promise<void> {
   const q = query.trim();
   if (!q) return;
@@ -103,6 +117,9 @@ export async function recordSearch(query: string): Promise<void> {
   }
 }
 
+/**
+ * Retrieves recent search queries, most recent first.
+ */
 export async function getRecentSearches(limit = 8): Promise<string[]> {
   const rows = await db.recentSearches.orderBy('searchedAt').reverse().limit(limit).toArray();
   return rows.map((r) => r.query);

@@ -79,6 +79,9 @@ export async function exchangeCodeForTokens(env: Env, code: string): Promise<Goo
   return (await res.json()) as GoogleTokenResponse;
 }
 
+/**
+ * Constructs the OAuth callback redirect URI from the configured app URL.
+ */
 function buildRedirectUri(env: Env): string {
   return new URL('/api/auth/google/callback', env.PUBLIC_APP_URL).toString();
 }

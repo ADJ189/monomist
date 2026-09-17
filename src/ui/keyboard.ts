@@ -10,6 +10,10 @@ export interface KeyboardHandlers {
 const SKIP_SMALL = 10;
 const SKIP_LARGE = 30;
 
+/**
+ * Binds global keyboard shortcuts for playback control, navigation, and UI actions.
+ * Skips bindings when the user is typing in an input/textarea.
+ */
 export function bindKeyboardShortcuts(engine: PlayerEngine, handlers: KeyboardHandlers): void {
   window.addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement | null;

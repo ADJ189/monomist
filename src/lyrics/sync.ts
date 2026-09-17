@@ -24,11 +24,18 @@ export class LyricsSync {
     });
   }
 
+  /**
+   * Registers a callback to be notified when the active lyrics line changes.
+   * Returns an unsubscribe function.
+   */
   onLineChange(cb: LineListener): () => void {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
   }
 
+  /**
+   * Loads and parses LRC text. Returns true on success, false if parsing failed.
+   */
   load(lrcText: string): boolean {
     try {
       this.liricle.load({ text: lrcText });
@@ -40,18 +47,30 @@ export class LyricsSync {
     }
   }
 
+  /**
+   * Clears the currently loaded lyrics.
+   */
   clear(): void {
     this.loaded = false;
   }
 
+  /**
+   * Returns true if lyrics are currently loaded.
+   */
   get isLoaded(): boolean {
     return this.loaded;
   }
 
+  /**
+   * Returns the parsed lyrics lines with timestamps.
+   */
   get lines(): LyricsLine[] {
     return this.liricle.data?.lines ?? [];
   }
 
+  /**
+   * Updates the sync state with the current playback time in seconds.
+   */
   feed(currentSec: number): void {
     if (this.loaded) this.liricle.sync(currentSec);
   }

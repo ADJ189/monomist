@@ -45,17 +45,26 @@ export class Queue {
     return this._shuffle && this.shuffledOrder ? this.shuffledOrder : this.order;
   }
 
+  /**
+   * Replaces the queue with new track IDs and sets the starting index.
+   */
   set(trackIds: string[], startIndex = 0): void {
     this.order = [...trackIds];
     this.shuffledOrder = this._shuffle ? shuffled(this.order, this.order[startIndex]) : null;
     this.index = Math.max(0, Math.min(startIndex, this.order.length - 1));
   }
 
+  /**
+   * Appends track IDs to the end of the queue.
+   */
   append(trackIds: string[]): void {
     this.order.push(...trackIds);
     if (this.shuffledOrder) this.shuffledOrder.push(...shuffled(trackIds));
   }
 
+  /**
+   * Enables or disables shuffle mode, reordering the queue accordingly.
+   */
   setShuffle(on: boolean): void {
     if (on === this._shuffle) return;
     this._shuffle = on;
@@ -64,6 +73,9 @@ export class Queue {
     else this.index = Math.max(0, this.order.indexOf(this.currentTrackId ?? ''));
   }
 
+  /**
+   * Cycles the repeat mode: off -> all -> one -> off.
+   */
   cycleRepeat(): RepeatMode {
     const next: Record<RepeatMode, RepeatMode> = { off: 'all', all: 'one', one: 'off' };
     this._repeat = next[this._repeat];
@@ -84,12 +96,18 @@ export class Queue {
     return undefined;
   }
 
+  /**
+   * Moves to the previous track, or wraps to the end if repeat-all is on.
+   */
   previous(): string | undefined {
     if (this.index === 0) return this._repeat === 'all' ? this.active.at(-1) : undefined;
     this.index -= 1;
     return this.currentTrackId;
   }
 
+  /**
+   * Captures the current queue state for persistence.
+   */
   snapshot() {
     return {
       trackIds: this.order,
@@ -99,6 +117,9 @@ export class Queue {
     };
   }
 
+  /**
+   * Restores the queue from a saved state.
+   */
   restore(state: { trackIds: string[]; currentIndex: number; shuffle: boolean; repeat: RepeatMode }): void {
     this.order = state.trackIds;
     this._repeat = state.repeat;

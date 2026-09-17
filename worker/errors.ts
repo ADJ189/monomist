@@ -39,6 +39,9 @@ export class NotImplementedError extends ApiError {
   }
 }
 
+/**
+ * Creates a JSON error response with the given error code and message.
+ */
 export function jsonError(code: ApiErrorCode, message: string, extraHeaders?: HeadersInit): Response {
   const status = STATUS_BY_CODE[code];
   const body: ApiErrorBody = { error: { code, message, status } };
@@ -48,6 +51,9 @@ export function jsonError(code: ApiErrorCode, message: string, extraHeaders?: He
   });
 }
 
+/**
+ * Creates a successful JSON response (status 200) with the given body.
+ */
 export function jsonOk<T>(body: T, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
     status: 200,

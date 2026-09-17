@@ -4,6 +4,10 @@ import { jsonOk } from '../errors';
 import { getProvider } from '../providers/registry';
 import { parseSourceId } from '../validation';
 
+/**
+ * Handles GET /api/video/:id. Fetches metadata for a single video from the
+ * configured provider.
+ */
 export async function handleVideoMetadata(
   request: Request,
   params: Record<string, string>,

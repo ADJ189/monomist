@@ -12,15 +12,24 @@ import { db } from '../storage/db';
  * later if you have one.
  */
 
+/**
+ * Saves user-supplied LRC lyrics for a track to local storage.
+ */
 export async function saveLyrics(trackId: string, lrcText: string): Promise<void> {
   await db.lyrics.put({ trackId, lrcText, savedAt: Date.now() });
 }
 
+/**
+ * Retrieves saved LRC lyrics for a track, or null if none exist.
+ */
 export async function getLyrics(trackId: string): Promise<string | null> {
   const row = await db.lyrics.get(trackId);
   return row?.lrcText ?? null;
 }
 
+/**
+ * Deletes saved lyrics for a track.
+ */
 export async function clearLyrics(trackId: string): Promise<void> {
   await db.lyrics.delete(trackId);
 }

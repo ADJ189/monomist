@@ -35,6 +35,10 @@ export default {
   }
 } satisfies ExportedHandler<Env>;
 
+/**
+ * Handles all /api/* requests: applies rate limiting, routes to the appropriate
+ * handler, and converts thrown errors to typed JSON responses.
+ */
 export async function handleApi(request: Request, url: URL, env: Env): Promise<Response> {
   try {
     const limiter = getRateLimiter(env);

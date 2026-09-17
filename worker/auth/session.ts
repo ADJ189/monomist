@@ -76,6 +76,9 @@ export async function readSession(request: Request, env: Env): Promise<SessionPa
 }
 
 /** Builds the Set-Cookie header value for a freshly issued session token. */
+/**
+ * Builds the Set-Cookie header value for a freshly issued session token.
+ */
 export function buildSessionCookie(token: string, env: Env): string {
   const secure = env.ENVIRONMENT === 'production' ? '; Secure' : '';
   return `${SESSION_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax${secure}; Max-Age=${Math.floor(
@@ -83,11 +86,17 @@ export function buildSessionCookie(token: string, env: Env): string {
   )}`;
 }
 
+/**
+ * Builds a Set-Cookie header that clears/expires the session cookie.
+ */
 export function buildSessionClearCookie(env: Env): string {
   const secure = env.ENVIRONMENT === 'production' ? '; Secure' : '';
   return `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax${secure}; Max-Age=0`;
 }
 
+/**
+ * Parses a Cookie header value into a key-value map.
+ */
 function parseCookies(header: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const part of header.split(';')) {
@@ -98,10 +107,16 @@ function parseCookies(header: string): Record<string, string> {
   return out;
 }
 
+/**
+ * Encodes a string as base64url (base64 with URL-safe characters, no padding).
+ */
 function base64UrlEncode(input: string): string {
   return btoa(input).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/**
+ * Decodes a base64url string back to plain text.
+ */
 function base64UrlDecode(input: string): string {
   const padded = input.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(input.length / 4) * 4, '=');
   return atob(padded);

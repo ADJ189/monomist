@@ -29,6 +29,10 @@ export class ColorBridge {
     };
   }
 
+  /**
+   * Requests dominant color extraction for the given artwork URL. Falls back
+   * to a neutral color if the URL is undefined.
+   */
   setArtwork(artworkUrl: string | undefined): void {
     if (!artworkUrl) {
       this.applyColor(0, 0, 20); // neutral fallback when a track has no artwork
@@ -40,6 +44,9 @@ export class ColorBridge {
     this.worker.postMessage(msg);
   }
 
+  /**
+   * Applies an HSL color to the document root's CSS custom properties.
+   */
   private applyColor(h: number, s: number, l: number): void {
     this.currentColor = { h, s, l };
     this.root.style.setProperty('--accent-h', String(h));
@@ -47,6 +54,9 @@ export class ColorBridge {
     this.root.style.setProperty('--accent-l', `${l}%`);
   }
 
+  /**
+   * Terminates the artwork worker.
+   */
   destroy(): void {
     this.worker.terminate();
   }
