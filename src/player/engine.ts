@@ -2,7 +2,7 @@ import type { QueueState, Track } from '../core/types';
 import type { MusicProvider } from '../music/provider';
 import { db, recordHistory, saveQueueState } from '../storage/db';
 import { AudioGraph } from './audiograph';
-import { AudioBackend, YouTubeIframeBackend, type PlaybackBackend } from './backends';
+import { DirectAudioBackend, YouTubeIframeBackend, type PlaybackBackend } from './backends';
 import { Queue } from './queue';
 
 export type PlayerEvent =
@@ -193,7 +193,13 @@ export class PlayerEngine {
     try {
       const source = await this.provider.resolvePlayableSource(track);
       this.backend =
-        source.kind === 'iframe' ? new YouTubeIframeBackend(this.iframeContainer) : new AudioBackend();
+        source.kind === 'iframe'
+          ? new YouTubeIframeBackend(this.iframeContainer)
+          : // Passing a resolver (rather than resolving once) is what lets
+            // DirectAudioBackend refresh a temporary media URL before it
+            // expires -- see backends.ts. Re-resolving the same track is
+            // safe/idempotent for every current provider.
+            new DirectAudioBackend(() => this.provider.resolvePlayableSource(track));
       await this.backend.load(source);
       this.backend.setMuted(this.muted);
       this.backend.setPlaybackRate(this.rate);
