@@ -95,6 +95,49 @@ describe('YouTubeProvider', () => {
       const results = await provider.search('some song');
       expect(results).toEqual({ tracks: [], albums: [], artists: [], playlists: [] });
     });
+
+    it('rejects immediately with AbortError for an already-aborted signal, without calling fetch at all', async () => {
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ tracks: [] }), { status: 200 }));
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      const controller = new AbortController();
+      controller.abort();
+
+      const provider = new YouTubeProvider(async () => 'token');
+      await expect(provider.search('some song', controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('propagates AbortError from the Monomist API attempt instead of falling back to an empty result', async () => {
+      // This is the regression case: no token, so searchDirect() would
+      // otherwise resolve with an empty (but successful) result without
+      // ever consulting `signal` -- silently discarding the cancellation
+      // and letting a superseded search "succeed" with stale/empty data.
+      globalThis.fetch = vi.fn(async () => {
+        throw new DOMException('The operation was aborted.', 'AbortError');
+      }) as unknown as typeof fetch;
+
+      const controller = new AbortController();
+      const provider = new YouTubeProvider(async () => null);
+
+      await expect(provider.search('some song', controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    });
+
+    it('still falls back to the direct API for a genuine (non-abort) failure with an active, unaborted signal', async () => {
+      globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/api/search')) throw new TypeError('Failed to fetch');
+        if (url.includes('googleapis.com/youtube/v3/search')) {
+          return new Response(JSON.stringify({ items: [] }), { status: 200 });
+        }
+        throw new Error(`Unexpected fetch to ${url}`);
+      }) as unknown as typeof fetch;
+
+      const controller = new AbortController();
+      const provider = new YouTubeProvider(async () => 'real-token');
+      const results = await provider.search('some song', controller.signal);
+      expect(results.tracks).toEqual([]); // fallback ran normally -- signal was never aborted
+    });
   });
 
   describe('resolvePlayableSource', () => {
