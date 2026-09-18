@@ -1,3 +1,5 @@
+import { ApiError } from './errors';
+
 export type RouteHandler<TContext> = (
   request: Request,
   params: Record<string, string>,
@@ -35,7 +37,14 @@ export class Router<TContext = unknown> {
     return this.add('GET', pattern, handler);
   }
 
-  /** Returns the matched route's handler + extracted params, or null if nothing matches. */
+  /**
+   * Returns the matched route's handler + extracted params, or null if
+   * nothing matches. Throws `ApiError('BAD_REQUEST')` -- not a generic
+   * error -- if a `:param` segment is present but isn't valid
+   * percent-encoding (e.g. a lone `%ZZ`); `decodeURIComponent` throws a
+   * plain `URIError` for that, which would otherwise surface as an
+   * unhandled 500 by the time it reaches `worker/index.ts`'s catch-all.
+   */
   match(
     method: string,
     pathname: string
@@ -61,7 +70,11 @@ function matchSegments(pattern: string[], actual: string[]): Record<string, stri
     const p = pattern[i];
     const a = actual[i];
     if (p.startsWith(':')) {
-      params[p.slice(1)] = decodeURIComponent(a);
+      try {
+        params[p.slice(1)] = decodeURIComponent(a);
+      } catch {
+        throw new ApiError('BAD_REQUEST', 'Malformed URL-encoded path segment.');
+      }
     } else if (p !== a) {
       return null;
     }
