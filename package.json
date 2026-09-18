@@ -1,6 +1,6 @@
 {
   "name": "monomist",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "A local-first, cinematic music player with a live artwork-driven visualizer, animated background, and 10-band EQ.",
   "main": "index.js",
   "scripts": {
