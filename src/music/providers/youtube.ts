@@ -27,7 +27,10 @@ import type { MusicProvider } from '../provider';
  * `ApiError.isNotImplemented` -- a Worker that isn't deployed at all in
  * a given environment (e.g. plain `vite dev` with no `wrangler dev`
  * alongside it) won't produce a typed API error either, and should fall
- * back exactly the same way.
+ * back exactly the same way. The one exception is cancellation: an
+ * `AbortError` (the caller's `signal` firing) is rethrown rather than
+ * treated as "the remote attempt failed, try the fallback" -- see
+ * `search()`.
  *
  * Deliberate scope note (unchanged): `resolvePlayableSource` must return
  * either a licensed/official audio URL or an 'iframe' source that mounts
@@ -61,8 +64,22 @@ export class YouTubeProvider implements MusicProvider {
    * then falls back to direct Data API v3 calls.
    */
   async search(query: string, signal?: AbortSignal): Promise<SearchResults> {
-    const remote = await this.searchViaApi(query, signal).catch(() => null);
+    // An already-aborted signal must reject immediately rather than
+    // silently resolving with a (possibly stale) result -- most notably
+    // via searchDirect()'s missing-token branch below, which returns an
+    // empty result without ever touching `signal` itself. Without this,
+    // a caller that aborts an in-flight search (e.g. because the user
+    // typed again) can have a superseded request's empty result clobber
+    // a newer, still-in-flight search's results.
+    throwIfAborted(signal);
+
+    const remote = await this.searchViaApi(query, signal).catch((err) => {
+      if (isAbortError(err)) throw err; // never treat cancellation as "try the fallback instead"
+      return null;
+    });
     if (remote) return remote;
+
+    throwIfAborted(signal);
     return this.searchDirect(query, signal);
   }
 
@@ -164,6 +181,16 @@ export class YouTubeProvider implements MusicProvider {
       embedUrl: `https://www.youtube.com/embed/${track.sourceId}?autoplay=1&enablejsapi=1`
     };
   }
+}
+
+/** True for the standard "this fetch/operation was cancelled via AbortController" error. */
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === 'AbortError';
+}
+
+/** Rejects immediately if `signal` is already aborted, using the same error shape a cancelled fetch would throw. */
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
 }
 
 /**
