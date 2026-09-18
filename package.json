@@ -16,7 +16,7 @@
     "lighthouse": "npm run build && lhci autorun",
     "start": "vite preview --host 0.0.0.0",
     "worker:dev": "wrangler dev",
-    "worker:deploy": "npm run build && wrangler deploy"
+    "worker:deploy": "npm run build && wrangler deploy --env production"
   },
   "keywords": [
     "music-player",
