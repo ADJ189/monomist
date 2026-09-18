@@ -48,6 +48,13 @@ describe('handleApi', () => {
     }
     expect(lastStatus).toBe(429);
   });
+  it('returns 400 BAD_REQUEST (not an unhandled 500) for a malformed percent-encoded param', async () => {
+    const env = fakeEnv();
+    const request = new Request('https://x.test/api/video/%ZZ');
+    const res = await handleApi(request, new URL(request.url), env);
+    expect(res.status).toBe(400);
+    expect((await readJson<{ error: { code: string } }>(res)).error.code).toBe('BAD_REQUEST');
+  });
 });
 
 describe('worker default export (fetch)', () => {

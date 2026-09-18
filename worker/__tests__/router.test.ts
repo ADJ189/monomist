@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../errors';
 import { Router } from '../router';
 
 describe('Router', () => {
@@ -58,6 +59,22 @@ describe('Router', () => {
     // "/api/search" must not accidentally match "/api/video/:id"'s pattern
     // or vice versa.
     expect(router.match('GET', '/api/searchxyz')).toBeNull();
+  });
+
+  it('throws a BAD_REQUEST ApiError (not a raw URIError) for a malformed percent-encoded param', () => {
+    const router = new Router();
+    router.get('/api/video/:id', async () => new Response('ok'));
+
+    let caught: unknown;
+    try {
+      router.match('GET', '/api/video/%ZZ');
+      expect.unreachable();
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).code).toBe('BAD_REQUEST');
+    expect((caught as ApiError).status).toBe(400);
   });
 
   it('threads an arbitrary context through to the matched handler', async () => {
