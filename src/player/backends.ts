@@ -81,6 +81,182 @@ export class AudioBackend implements PlaybackBackend {
   }
 }
 
+/**
+ * A source of temporary, provider-issued audio URLs that expire. This is
+ * the seam the future server-side backend (item 5 of the Monomist
+ * architecture work) plugs into: today, `src/music/providers/youtube.ts`
+ * is the only implementer (it tries the Monomist API before falling back
+ * to a direct call -- see that file's class doc), and neither path
+ * currently returns a source with `expiresAt` set (the placeholder
+ * ServerYouTubeProvider isn't implemented -- see worker/providers). Once
+ * a real direct-audio-capable provider exists, `resolve()` returning a
+ * fresh `{ kind: 'audio-url', url, expiresAt }` is all `DirectAudioBackend`
+ * needs to keep playback going past the original URL's expiry.
+ */
+export type PlayableSourceResolver = () => Promise<PlayableSource>;
+
+/**
+ * Direct-audio backend for provider-issued, licensed `audio-url` sources.
+ * Wraps `AudioBackend` (unchanged, still usable standalone) and adds one
+ * thing on top: if the loaded source carries an `expiresAt`, it schedules
+ * a refresh shortly before that deadline, re-resolves the source via the
+ * given resolver, and swaps the `<audio>` element's `src` in place --
+ * same element throughout, so a `MediaElementAudioSourceNode` already
+ * attached by AudioGraph (see player/audiograph.ts) keeps working without
+ * needing to be re-attached, and playback continues from the same
+ * position rather than restarting.
+ *
+ * This is what PlayerEngine now constructs for every `audio-url` source
+ * (see engine.ts) -- when `expiresAt` is absent (the common case today,
+ * since no current provider returns one), the refresh timer simply never
+ * fires and this behaves exactly like plain `AudioBackend`.
+ *
+ * A resolver call that fails (a transient network blip re-resolving the
+ * same track, say) doesn't give up immediately -- the currently-loaded
+ * URL is still playing fine in the meantime, so `refresh()` retries on a
+ * short, bounded delay for as long as that URL still has runway left
+ * before its own `expiresAt`. `onError` only fires once there's no
+ * meaningful time left to retry into, which is also the point past which
+ * staying silent would mean playback just dying with no warning.
+ */
+const REFRESH_LEAD_MS = 30_000;
+const MIN_REFRESH_DELAY_MS = 5_000;
+const RETRY_DELAY_MS = 10_000;
+
+export class DirectAudioBackend implements PlaybackBackend {
+  private inner = new AudioBackend();
+  private refreshTimer: number | null = null;
+  private destroyed = false;
+  private errorCb?: (err: unknown) => void;
+  /** Tracked locally (rather than read off the element) so refresh() can restore it without reaching into AudioBackend's private state. */
+  private isPlaying = false;
+  /** The currently-loaded source's expiry, if any -- used to bound retries on a failed refresh (see `handleRefreshFailure`). */
+  private currentExpiresAt: number | undefined;
+
+  constructor(private resolve: PlayableSourceResolver) {}
+
+  async load(source: PlayableSource): Promise<void> {
+    if (source.kind !== 'audio-url') throw new Error('DirectAudioBackend requires an audio-url source');
+    // AudioBackend.load() only ever assigns `.src` on the one <audio>
+    // element it creates in its constructor -- calling it again for a
+    // refresh (below) reuses that same element, which is what keeps an
+    // already-attached MediaElementAudioSourceNode valid.
+    await this.inner.load(source);
+    this.isPlaying = false;
+    this.currentExpiresAt = source.expiresAt;
+    this.scheduleRefresh(source.expiresAt);
+  }
+
+  private scheduleRefresh(expiresAt: number | undefined): void {
+    if (this.refreshTimer) window.clearTimeout(this.refreshTimer);
+    this.refreshTimer = null;
+    if (!expiresAt) return;
+
+    // Refresh 30s ahead of expiry, but never schedule less than 5s out --
+    // an `expiresAt` that's already imminent (or in the past, e.g. clock
+    // skew) still gets one refresh attempt rather than firing instantly
+    // in a tight loop if that attempt also comes back near-expired.
+    const delay = Math.max(MIN_REFRESH_DELAY_MS, expiresAt - Date.now() - REFRESH_LEAD_MS);
+    this.refreshTimer = window.setTimeout(() => void this.refresh(), delay);
+  }
+
+  private async refresh(): Promise<void> {
+    if (this.destroyed) return;
+    try {
+      const fresh = await this.resolve();
+      if (this.destroyed) return;
+      if (fresh.kind !== 'audio-url') {
+        // The provider switched to an iframe source (e.g. a direct stream
+        // stopped being available) -- PlayerEngine owns backend swaps on
+        // track change, but mid-track it can't retarget the backend type.
+        // Surface it as a playback error so the engine's onError handler
+        // decides what to do (matches how any other unrecoverable
+        // playback failure is handled today).
+        this.errorCb?.(new Error('Refreshed source is no longer a direct audio URL'));
+        return;
+      }
+      const resumeAt = this.inner.getCurrentTime();
+      const wasPlaying = this.isPlaying;
+      await this.inner.load(fresh);
+      this.inner.seek(resumeAt);
+      if (wasPlaying) this.inner.play();
+      this.currentExpiresAt = fresh.expiresAt;
+      this.scheduleRefresh(fresh.expiresAt);
+    } catch (err) {
+      this.handleRefreshFailure(err);
+    }
+  }
+
+  /**
+   * A failed refresh attempt isn't necessarily fatal: the URL that's
+   * still loaded keeps playing regardless of whether re-resolving it
+   * succeeded, so as long as that URL has more than `RETRY_DELAY_MS` of
+   * runway left before its own `expiresAt`, retry quietly instead of
+   * surfacing a transient failure as a playback error (and, worse,
+   * leaving no refresh scheduled at all -- which is what let the URL
+   * expire and playback stop outright before this retry existed). Once
+   * there's no more runway to retry into, give up and call `onError` --
+   * by that point, staying silent would mean playback just dying with no
+   * warning once the URL actually expires.
+   */
+  private handleRefreshFailure(err: unknown): void {
+    if (this.destroyed) return;
+
+    const remaining = this.currentExpiresAt !== undefined ? this.currentExpiresAt - Date.now() : undefined;
+    if (remaining !== undefined && remaining > RETRY_DELAY_MS) {
+      this.refreshTimer = window.setTimeout(() => void this.refresh(), RETRY_DELAY_MS);
+      return;
+    }
+
+    this.errorCb?.(err);
+  }
+
+  play(): void {
+    this.isPlaying = true;
+    this.inner.play();
+  }
+  pause(): void {
+    this.isPlaying = false;
+    this.inner.pause();
+  }
+  seek(sec: number): void {
+    this.inner.seek(sec);
+  }
+  setVolume(v: number): void {
+    this.inner.setVolume(v);
+  }
+  setMuted(muted: boolean): void {
+    this.inner.setMuted(muted);
+  }
+  setPlaybackRate(rate: number): void {
+    this.inner.setPlaybackRate(rate);
+  }
+  getCurrentTime(): number {
+    return this.inner.getCurrentTime();
+  }
+  getDurationSec(): number {
+    return this.inner.getDurationSec();
+  }
+  getMediaElement(): HTMLMediaElement | null {
+    return this.inner.getMediaElement();
+  }
+  destroy(): void {
+    this.destroyed = true;
+    if (this.refreshTimer) window.clearTimeout(this.refreshTimer);
+    this.inner.destroy();
+  }
+  onTimeUpdate(cb: (sec: number) => void): void {
+    this.inner.onTimeUpdate(cb);
+  }
+  onEnded(cb: () => void): void {
+    this.inner.onEnded(cb);
+  }
+  onError(cb: (err: unknown) => void): void {
+    this.errorCb = cb;
+    this.inner.onError(cb);
+  }
+}
+
 declare global {
   interface Window {
     YT?: any;
@@ -90,7 +266,9 @@ declare global {
 
 let ytApiPromise: Promise<void> | null = null;
 
-/** Loads YouTube's official IFrame API script exactly once, however many players need it. */
+/**
+ * Loads YouTube's official IFrame API script exactly once, however many players need it.
+ */
 function loadYouTubeApi(): Promise<void> {
   if (ytApiPromise) return ytApiPromise;
   ytApiPromise = new Promise((resolve) => {

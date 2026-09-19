@@ -1,0 +1,13 @@
+# Copy this file to `.dev.vars` (already gitignored) for local `wrangler dev`.
+# In production these are set with `wrangler secret put <NAME>` -- never
+# committed, never put in wrangler.toml's [vars].
+
+# Google OAuth client (for the future sign-in flow, see worker/auth/oauth.ts).
+# Not required for search/video/playback routes to run -- those are
+# unauthenticated. Leave blank if you're not working on auth.
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+
+# HMAC key for signing session cookies (see worker/auth/session.ts).
+# Generate with: openssl rand -base64 32
+SESSION_SECRET=

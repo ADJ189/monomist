@@ -109,6 +109,9 @@ export function mountSettingsPanel(root: HTMLElement, engine: PlayerEngine): Set
 // ---------------------------------------------------------------------
 // Appearance
 // ---------------------------------------------------------------------
+/**
+ * Renders the HTML for the Appearance settings tab.
+ */
 function renderAppearance(s: AppSettings): string {
   return `
     <section class="settings-section">
@@ -155,6 +158,9 @@ function renderAppearance(s: AppSettings): string {
   `;
 }
 
+/**
+ * Wires up event listeners for the Appearance settings tab.
+ */
 function wireAppearance(body: HTMLElement): void {
   body.querySelectorAll<HTMLButtonElement>('#seg-visualizer .segmented__item').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -201,6 +207,9 @@ function wireAppearance(body: HTMLElement): void {
 // ---------------------------------------------------------------------
 // Equalizer
 // ---------------------------------------------------------------------
+/**
+ * Renders the HTML for the Equalizer settings tab.
+ */
 function renderEqualizer(s: AppSettings, engine: PlayerEngine): string {
   const usingFallbackNow = !engine.analyser.supportsRealAudio;
   return `
@@ -248,6 +257,9 @@ function renderEqualizer(s: AppSettings, engine: PlayerEngine): string {
   `;
 }
 
+/**
+ * Wires up event listeners for the Equalizer settings tab.
+ */
 function wireEqualizer(body: HTMLElement): void {
   body.querySelector<HTMLInputElement>('#chk-eq-enabled')!.addEventListener('change', (e) => {
     settingsStore.update({ eqEnabled: (e.target as HTMLInputElement).checked });
@@ -286,9 +298,16 @@ function wireEqualizer(body: HTMLElement): void {
   });
 }
 
+/**
+ * Formats a decibel value with sign and dB suffix.
+ */
 function formatDb(db: number): string {
   return `${db > 0 ? '+' : ''}${db}dB`;
 }
+
+/**
+ * Formats a frequency in Hz, using 'k' suffix for kHz.
+ */
 function formatHz(hz: number): string {
   return hz >= 1000 ? `${hz / 1000}k` : `${hz}`;
 }
@@ -296,6 +315,9 @@ function formatHz(hz: number): string {
 // ---------------------------------------------------------------------
 // Playback
 // ---------------------------------------------------------------------
+/**
+ * Renders the HTML for the Playback settings tab.
+ */
 function renderPlayback(s: AppSettings): string {
   return `
     <section class="settings-section">
@@ -308,6 +330,9 @@ function renderPlayback(s: AppSettings): string {
   `;
 }
 
+/**
+ * Wires up event listeners for the Playback settings tab.
+ */
 function wirePlayback(body: HTMLElement): void {
   body.querySelector<HTMLInputElement>('#chk-remember-speed')!.addEventListener('change', (e) => {
     settingsStore.update({ rememberSpeed: (e.target as HTMLInputElement).checked });
@@ -317,6 +342,9 @@ function wirePlayback(body: HTMLElement): void {
 // ---------------------------------------------------------------------
 // About
 // ---------------------------------------------------------------------
+/**
+ * Renders the HTML for the About tab.
+ */
 function renderAbout(): string {
   return `
     <section class="settings-section">

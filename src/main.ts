@@ -8,6 +8,9 @@ import { db, loadQueueState } from './storage/db';
  *  so a fast boot doesn't just flash the logo for one frame. */
 const MIN_SPLASH_MS = 650;
 
+/**
+ * Retrieves the stored YouTube OAuth token from IndexedDB, if present.
+ */
 async function getStoredYouTubeToken(): Promise<string | null> {
   // Wire this to Session Clock's existing OAuth flow: ensureFreshToken()
   // in integrations.ts already does this token refresh for the
@@ -16,7 +19,9 @@ async function getStoredYouTubeToken(): Promise<string | null> {
   return (row?.value as string) ?? null;
 }
 
-/** Fades out and removes index.html's inline splash. Safe to call more than once. */
+/**
+ * Fades out and removes index.html's inline splash. Safe to call more than once.
+ */
 function hideSplash(): void {
   const splash = document.getElementById('splash');
   if (!splash) return;
@@ -24,6 +29,10 @@ function hideSplash(): void {
   splash.addEventListener('transitionend', () => splash.remove(), { once: true });
 }
 
+/**
+ * Initializes the player engine, provider, and UI. Restores the saved queue if
+ * available, and registers the service worker.
+ */
 async function bootstrap(): Promise<void> {
   const splashShownAt = performance.now();
   const provider = new YouTubeProvider(getStoredYouTubeToken);

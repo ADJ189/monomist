@@ -62,13 +62,18 @@ export class CanvasVisualizer {
     this.seedParticles();
   }
 
-  /** Reduced motion is either the OS setting or a user override -- see settings.ts's "Motion" segmented control. */
+  /**
+   * Reduced motion is either the OS setting or a user override -- see settings.ts's "Motion" segmented control.
+   */
   private get reducedMotion(): boolean {
     if (this.settings.motionPreference === 'always') return true;
     if (this.settings.motionPreference === 'never') return false;
     return this.systemReducedMotion;
   }
 
+  /**
+   * Updates the canvas resolution to match its display size, respecting device pixel ratio.
+   */
   private resize(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.max(1, this.canvas.clientWidth);
@@ -78,6 +83,9 @@ export class CanvasVisualizer {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+  /**
+   * Seeds random particles for the ambient animation.
+   */
   private seedParticles(): void {
     const count = this.settings.visualizerStyle === 'ambient' ? 40 : 28;
     this.particles = Array.from({ length: count }, () => ({
@@ -89,6 +97,9 @@ export class CanvasVisualizer {
     }));
   }
 
+  /**
+   * Returns the accent color to use, either from artwork or a fixed hue setting.
+   */
   private getAccent(): AccentColor {
     if (this.settings.accentMode === 'fixed') {
       return { h: this.settings.fixedHue, s: 55, l: 55 };
@@ -96,6 +107,9 @@ export class CanvasVisualizer {
     return this.getArtworkAccent();
   }
 
+  /**
+   * Starts the animation loop.
+   */
   start(): void {
     if (this.raf !== null || document.hidden) return;
     let last = performance.now();
@@ -108,6 +122,9 @@ export class CanvasVisualizer {
     this.raf = requestAnimationFrame(loop);
   }
 
+  /**
+   * Stops the animation loop.
+   */
   stop(): void {
     if (this.raf !== null) cancelAnimationFrame(this.raf);
     this.raf = null;
@@ -120,6 +137,9 @@ export class CanvasVisualizer {
     this.unsubscribeSettings();
   }
 
+  /**
+   * Renders a single frame of the visualizer.
+   */
   private draw(dt: number): void {
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
@@ -154,6 +174,9 @@ export class CanvasVisualizer {
     if (!this.reducedMotion) this.drawParticles(dt, h, hue, s, intensity);
   }
 
+  /**
+   * Draws the bars visualizer style.
+   */
   private drawBars(w: number, h: number, hue: number, s: number, freq: Uint8Array, intensity: number): void {
     const barCount = Math.min(48, freq.length);
     const barWidth = w / (barCount * 2);
@@ -168,6 +191,9 @@ export class CanvasVisualizer {
     }
   }
 
+  /**
+   * Draws the wave visualizer style.
+   */
   private drawWave(w: number, h: number, hue: number, s: number, freq: Uint8Array, intensity: number): void {
     const midY = h * 0.82;
     this.ctx.strokeStyle = `hsl(${hue} ${Math.min(70, s + 10)}% 65% / ${clampPct(70 * intensity)}%)`;
@@ -184,6 +210,9 @@ export class CanvasVisualizer {
     this.ctx.stroke();
   }
 
+  /**
+   * Draws the radial visualizer style.
+   */
   private drawRadial(w: number, h: number, hue: number, s: number, freq: Uint8Array, intensity: number): void {
     const cx = w / 2;
     const cy = h * 0.55;
@@ -206,6 +235,9 @@ export class CanvasVisualizer {
     }
   }
 
+  /**
+   * Draws and updates the floating ambient particles.
+   */
   private drawParticles(dt: number, h: number, hue: number, s: number, intensity: number): void {
     this.ctx.fillStyle = `hsl(${hue} ${s}% 85% / ${clampPct(40 * Math.min(1, intensity))}%)`;
     for (const p of this.particles) {
@@ -219,6 +251,9 @@ export class CanvasVisualizer {
   }
 }
 
+/**
+ * Clamps a number to the 0-100 range and rounds it.
+ */
 function clampPct(v: number): number {
   return Math.max(0, Math.min(100, Math.round(v)));
 }

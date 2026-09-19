@@ -39,16 +39,25 @@ self.onmessage = async (e: MessageEvent<ArtworkColorRequest>) => {
   }
 };
 
+/**
+ * Posts a response message back to the main thread.
+ */
 function respond(msg: ArtworkColorResponse): void {
   (self as unknown as Worker).postMessage(msg);
 }
 
+/**
+ * Fetches and decodes an image, downsampling it to a small fixed size.
+ */
 async function loadBitmap(url: string): Promise<ImageBitmap> {
   const res = await fetch(url, { mode: 'cors' });
   const blob = await res.blob();
   return createImageBitmap(blob, { resizeWidth: SAMPLE_SIZE, resizeHeight: SAMPLE_SIZE, resizeQuality: 'low' });
 }
 
+/**
+ * Extracts the dominant color from a bitmap by averaging all non-transparent pixels.
+ */
 function dominantColor(bitmap: ImageBitmap): { h: number; s: number; l: number } {
   const canvas = new OffscreenCanvas(SAMPLE_SIZE, SAMPLE_SIZE);
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
@@ -71,6 +80,9 @@ function dominantColor(bitmap: ImageBitmap): { h: number; s: number; l: number }
   return rgbToHsl(r / n, g / n, b / n);
 }
 
+/**
+ * Converts RGB color values (0-255) to HSL (hue 0-360, saturation/lightness 0-100).
+ */
 function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
   r /= 255;
   g /= 255;

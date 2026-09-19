@@ -79,7 +79,9 @@ export class AudioGraph {
     this.attached = true;
   }
 
-  /** Builds the fixed preamp -> band0 -> ... -> bandN -> analyser -> destination chain once. */
+  /**
+   * Builds the fixed preamp -> band0 -> ... -> bandN -> analyser -> destination chain once.
+   */
   private ensureGraph(): void {
     if (this.analyserNode) return;
     const ctx = this.ctx!;
@@ -107,7 +109,9 @@ export class AudioGraph {
     this.applyEqSettings(this.latestSettings);
   }
 
-  /** Bypass is implemented as "every node is a no-op," not by rewiring the graph. */
+  /**
+   * Bypass is implemented as "every node is a no-op," not by rewiring the graph.
+   */
   private applyEqSettings(s: AppSettings): void {
     if (!this.preamp || this.filters.length === 0 || !this.ctx) return;
     const t = this.ctx.currentTime;
@@ -118,6 +122,10 @@ export class AudioGraph {
     });
   }
 
+  /**
+   * Reads frequency data from the analyser, or returns an ambient fallback if
+   * no real audio source is attached.
+   */
   read(): VisualizerData {
     if (this.attached && this.analyserNode) {
       this.analyserNode.getByteFrequencyData(this.data);
@@ -127,10 +135,17 @@ export class AudioGraph {
   }
 }
 
+/**
+ * Converts a decibel value to linear gain.
+ */
 function dbToGain(db: number): number {
   return Math.pow(10, db / 20);
 }
 
+/**
+ * Generates a smooth, breathing ambient pulse pattern for the visualizer when
+ * no real audio data is available.
+ */
 function ambientPulse(out: Uint8Array, start: number): Uint8Array {
   const t = (performance.now() - start) / 1000;
   for (let i = 0; i < out.length; i++) {

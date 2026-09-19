@@ -1,7 +1,7 @@
 import type { PlayerEngine } from './engine';
 
 /**
- * Media Session is Limited-availability/not-Baseline per MDN, so this is
+ * Binds Media Session API handlers for hardware media controls. This is
  * pure progressive enhancement -- every call is guarded, and the app works
  * identically if the API doesn't exist.
  */

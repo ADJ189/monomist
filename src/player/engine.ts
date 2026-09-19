@@ -2,7 +2,7 @@ import type { QueueState, Track } from '../core/types';
 import type { MusicProvider } from '../music/provider';
 import { db, recordHistory, saveQueueState } from '../storage/db';
 import { AudioGraph } from './audiograph';
-import { AudioBackend, YouTubeIframeBackend, type PlaybackBackend } from './backends';
+import { DirectAudioBackend, YouTubeIframeBackend, type PlaybackBackend } from './backends';
 import { Queue } from './queue';
 
 export type PlayerEvent =
@@ -32,11 +32,16 @@ export class PlayerEngine {
     private iframeContainer: HTMLElement
   ) {}
 
-  /** Called once the real DOM node exists — see main.ts bootstrap order. */
+  /**
+   * Called once the real DOM node exists — see main.ts bootstrap order.
+   */
   setIframeContainer(el: HTMLElement): void {
     this.iframeContainer = el;
   }
 
+  /**
+   * Registers an event listener. Returns an unsubscribe function.
+   */
   on(cb: Listener): () => void {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
@@ -75,10 +80,16 @@ export class PlayerEngine {
     return this.queue.activeIds;
   }
 
+  /**
+   * Retrieves a track from the in-memory cache by ID.
+   */
   getTrack(id: string): Track | undefined {
     return this.tracksById.get(id);
   }
 
+  /**
+   * Replaces the queue with the given tracks and starts playing at the specified index.
+   */
   async playTracks(tracks: Track[], startIndex = 0): Promise<void> {
     for (const t of tracks) this.tracksById.set(t.id, t);
     void db.tracks.bulkPut(tracks); // fire-and-forget cache so a reload can restore the queue by id
@@ -90,6 +101,9 @@ export class PlayerEngine {
     await this.loadCurrent();
   }
 
+  /**
+   * Appends tracks to the end of the queue without changing what's playing.
+   */
   addToQueue(tracks: Track[]): void {
     for (const t of tracks) this.tracksById.set(t.id, t);
     void db.tracks.bulkPut(tracks);
@@ -97,6 +111,9 @@ export class PlayerEngine {
     this.scheduleQueueSave();
   }
 
+  /**
+   * Removes a track from the queue by ID.
+   */
   removeFromQueue(trackId: string): void {
     this.queue.remove(trackId);
     this.scheduleQueueSave();
@@ -110,47 +127,74 @@ export class PlayerEngine {
     this.emit({ type: 'trackchange', track: this.currentTrack });
   }
 
+  /**
+   * Toggles shuffle mode on the queue.
+   */
   toggleShuffle(): void {
     this.queue.setShuffle(!this.queue.shuffle);
     this.scheduleQueueSave();
   }
 
+  /**
+   * Cycles the repeat mode: off -> all -> one -> off.
+   */
   cycleRepeat(): void {
     this.queue.cycleRepeat();
     this.scheduleQueueSave();
   }
 
+  /**
+   * Toggles between play and pause.
+   */
   togglePlayPause(): void {
     if (!this.backend) return;
     if (this.playing) this.pause();
     else this.play();
   }
 
+  /**
+   * Starts or resumes playback.
+   */
   play(): void {
     this.backend?.play();
     this.playing = true;
     this.emit({ type: 'playstate', playing: true });
   }
 
+  /**
+   * Pauses playback.
+   */
   pause(): void {
     this.backend?.pause();
     this.playing = false;
     this.emit({ type: 'playstate', playing: false });
   }
 
+  /**
+   * Seeks to the given time in seconds.
+   */
   seek(sec: number): void {
     this.backend?.seek(sec);
   }
 
+  /**
+   * Sets the output volume (0..1).
+   */
   setVolume(v: number): void {
     this.backend?.setVolume(v);
   }
 
+  /**
+   * Toggles mute on/off.
+   */
   toggleMute(): void {
     this.muted = !this.muted;
     this.backend?.setMuted(this.muted);
   }
 
+  /**
+   * Sets the playback rate (0.75x, 1x, 1.25x, 1.5x, 2x).
+   */
   setPlaybackRate(rate: number): void {
     this.rate = rate;
     this.backend?.setPlaybackRate(rate);
@@ -163,6 +207,9 @@ export class PlayerEngine {
     this.backend?.seek(target);
   }
 
+  /**
+   * Advances to the next track in the queue, or pauses if none remain.
+   */
   async next(): Promise<void> {
     const nextId = this.queue.advance();
     if (!nextId) {
@@ -172,6 +219,9 @@ export class PlayerEngine {
     await this.loadCurrent();
   }
 
+  /**
+   * Goes to the previous track, or restarts the current track if more than 3s in.
+   */
   async previous(): Promise<void> {
     // Restart the current track if we're more than 3s in — matches the
     // behavior every music player's "previous" button actually has.
@@ -184,6 +234,10 @@ export class PlayerEngine {
     await this.loadCurrent();
   }
 
+  /**
+   * Loads and plays the current track from the queue. Resolves the playable
+   * source, creates the appropriate backend, and wires up event handlers.
+   */
   private async loadCurrent(): Promise<void> {
     const track = this.currentTrack;
     this.emit({ type: 'trackchange', track });
@@ -193,7 +247,13 @@ export class PlayerEngine {
     try {
       const source = await this.provider.resolvePlayableSource(track);
       this.backend =
-        source.kind === 'iframe' ? new YouTubeIframeBackend(this.iframeContainer) : new AudioBackend();
+        source.kind === 'iframe'
+          ? new YouTubeIframeBackend(this.iframeContainer)
+          : // Passing a resolver (rather than resolving once) is what lets
+            // DirectAudioBackend refresh a temporary media URL before it
+            // expires -- see backends.ts. Re-resolving the same track is
+            // safe/idempotent for every current provider.
+            new DirectAudioBackend(() => this.provider.resolvePlayableSource(track));
       await this.backend.load(source);
       this.backend.setMuted(this.muted);
       this.backend.setPlaybackRate(this.rate);
