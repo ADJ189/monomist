@@ -6,6 +6,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses date-based [0.0.x] pre-release versioning until a
 first stable 1.0.0.
 
+## [0.1.0] - 2026-09-18
+
+A larger update than the version bump alone suggests -- jumping from
+0.0.4 straight to 0.1.0 rather than 0.0.5 to reflect that. All six items
+below were flagged in PR review of the 0.0.4 Worker/API scaffolding and
+are fixed here.
+
+### Fixed (PR bug fixes)
+
+- **Cancelled searches could resolve with stale/empty results
+  (`src/music/providers/youtube.ts`)** -- `YouTubeProvider.search()`
+  caught every error from the Monomist API attempt, including
+  `AbortError`, and treated it the same as "try the fallback instead."
+  With no OAuth token available, the direct-API fallback returns an
+  empty result without ever consulting the abort signal, so a cancelled
+  search (e.g. the user typed again) could still resolve successfully
+  and overwrite a newer, still-in-flight search's results. `search()`
+  now checks the signal before starting and rethrows `AbortError` from
+  the remote attempt instead of falling back.
+- **`package.json` and `package-lock.json` had drifted apart** -- the
+  0.0.4 update bumped `package.json` to `0.0.4` but the committed
+  lockfile still read `0.0.3`. Re-synced via `npm install`; both (and
+  `CHANGELOG.md`) now agree.
+- **`worker:deploy` never targeted the production environment
+  (`package.json`, `wrangler.toml`)** -- the script ran a bare `wrangler
+  deploy`, which uses the top-level (development) `vars` rather than
+  `[env.production]`, so a real deploy could go out with the localhost
+  `PUBLIC_APP_URL` and `ENVIRONMENT=development`. `worker:deploy` now
+  passes `--env production` explicitly. Chasing this down also surfaced
+  a more serious problem: a stray `wrangler.jsonc` (no `main` field) had
+  ended up alongside `wrangler.toml`, and Wrangler silently prefers a
+  JSON(C) config over TOML with **no warning** -- confirmed via `wrangler
+  deploy --dry-run`, which reported "No bindings found" and a
+  static-assets-only upload. In practice this meant the entire Worker
+  script -- every `/api/*` route, rate limiting, all of it -- was dead
+  configuration in any real deployment despite `wrangler deploy`
+  exiting successfully. Removed `wrangler.jsonc`, folded its
+  `not_found_handling: single-page-application` setting into
+  `wrangler.toml`, and verified both `--env production` and a bare
+  deploy now correctly bundle `worker/index.ts` with the expected
+  bindings.
+- **CI didn't run the test suite (`.github/workflows/ci.yml`)** -- the
+  0.0.4 update added ~90 Vitest tests and a `test` script, but the CI
+  job only ran lint, typecheck, and build, so a regression covered only
+  by tests wouldn't have blocked a PR. Added a `Test` step (`npm test`)
+  ahead of `Build`.
+- **A malformed URL became an unhandled 500 (`worker/router.ts`)** --
+  `decodeURIComponent()` throws a raw `URIError` on malformed
+  percent-encoding (e.g. a path segment containing a lone `%ZZ`), which
+  propagated out of the router uncaught and was logged and returned as
+  a generic `INTERNAL_ERROR` rather than the client-error it actually
+  is. The router now catches this and throws a typed
+  `ApiError('BAD_REQUEST')` instead.
+- **A transient refresh failure could let a temporary media URL expire
+  outright (`src/player/backends.ts`)** -- `DirectAudioBackend`'s
+  scheduled refresh, on failure, only notified `onError` and never
+  scheduled a follow-up attempt. Since the currently-loaded URL keeps
+  playing regardless of whether re-resolving it succeeded, a single
+  transient failure (a momentary network blip re-resolving the track)
+  meant no further refresh was ever scheduled, so the URL would later
+  expire for real and playback would simply stop. Refresh failures now
+  retry quietly on a short, bounded delay for as long as the
+  currently-loaded URL still has meaningful runway before its own
+  expiry; `onError` only fires once that runway is exhausted.
+
+### Added
+
+- Additional test coverage for all six fixes above (Vitest suite grew
+  from ~87 to 96 tests), including new cases for already-aborted and
+  mid-flight-aborted search signals, malformed percent-encoded route
+  params, and the bounded-retry/eventual-`onError` behavior of a
+  repeatedly-failing refresh.
+
 ## [0.0.4] - 2026-09-17
 
 ### Added
